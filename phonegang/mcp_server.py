@@ -291,6 +291,114 @@ class MCPPhonegangServer:
                 "message": str(e)
             }
 
+    def tap_xy(self, x: int, y: int, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Tap at specific coordinates.
+
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            serial: Optional device serial
+
+        Returns:
+            Dict with success
+        """
+        try:
+            self._ensure_connected(serial)
+            self._device.tap(x, y)
+            self._invalidate_cache()
+
+            return {
+                "success": True,
+                "message": f"Tapped at ({x}, {y})"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 300,
+              serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Swipe between two points.
+
+        Args:
+            x1: Start X coordinate
+            y1: Start Y coordinate
+            x2: End X coordinate
+            y2: End Y coordinate
+            duration: Swipe duration in milliseconds
+            serial: Optional device serial
+
+        Returns:
+            Dict with success
+        """
+        try:
+            self._ensure_connected(serial)
+            self._device.swipe(x1, y1, x2, y2, duration)
+            self._invalidate_cache()
+
+            return {
+                "success": True,
+                "message": f"Swiped from ({x1}, {y1}) to ({x2}, {y2})"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+    def press_key(self, keycode: str, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Press a key.
+
+        Args:
+            keycode: Android keycode (e.g., 'KEYCODE_BACK', 'KEYCODE_HOME')
+            serial: Optional device serial
+
+        Returns:
+            Dict with success
+        """
+        try:
+            self._ensure_connected(serial)
+            self._device.press_key(keycode)
+            self._invalidate_cache()
+
+            return {
+                "success": True,
+                "message": f"Pressed key: {keycode}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+    def get_ui_dump(self, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get raw XML UI dump.
+
+        Args:
+            serial: Optional device serial
+
+        Returns:
+            Dict with success and XML content
+        """
+        try:
+            self._ensure_connected(serial)
+            xml = self._device.get_ui_dump()
+
+            return {
+                "success": True,
+                "xml": xml
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI

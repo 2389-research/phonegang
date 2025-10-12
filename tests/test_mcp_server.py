@@ -459,5 +459,101 @@ class TestWaitForTool:
         assert result["found"] is True
 
 
+class TestLowLevelTools:
+    """Test low-level MCP tools."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    def test_tap_xy_succeeds(self, mock_device_class, mock_manager_class):
+        """Test tapping at specific coordinates."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device.tap = Mock()
+        mock_device_class.return_value = mock_device
+
+        server = MCPPhonegangServer()
+        result = server.tap_xy(100, 200)
+
+        assert result["success"] is True
+        mock_device.tap.assert_called_once_with(100, 200)
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    def test_swipe_succeeds(self, mock_device_class, mock_manager_class):
+        """Test swiping."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device.swipe = Mock()
+        mock_device_class.return_value = mock_device
+
+        server = MCPPhonegangServer()
+        result = server.swipe(100, 200, 100, 500, duration=300)
+
+        assert result["success"] is True
+        mock_device.swipe.assert_called_once_with(100, 200, 100, 500, 300)
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    def test_press_key_succeeds(self, mock_device_class, mock_manager_class):
+        """Test pressing key."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device.press_key = Mock()
+        mock_device_class.return_value = mock_device
+
+        server = MCPPhonegangServer()
+        result = server.press_key("KEYCODE_BACK")
+
+        assert result["success"] is True
+        mock_device.press_key.assert_called_once_with("KEYCODE_BACK")
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    def test_get_ui_dump_succeeds(self, mock_device_class, mock_manager_class):
+        """Test getting raw UI dump."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device.get_ui_dump.return_value = "<xml>test</xml>"
+        mock_device_class.return_value = mock_device
+
+        server = MCPPhonegangServer()
+        result = server.get_ui_dump()
+
+        assert result["success"] is True
+        assert result["xml"] == "<xml>test</xml>"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
