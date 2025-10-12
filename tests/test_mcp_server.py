@@ -66,6 +66,92 @@ class TestDeviceConnection:
         # Should not create new controller
         assert server._controller is mock_controller
 
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_ensure_connected_switches_devices_when_serial_changes(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test that ensure_connected disconnects and reconnects when different serial is requested."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+
+        # First device
+        mock_device_info_1 = Mock()
+        mock_device_info_1.serial = "device_1"
+        mock_device_info_1.transport = None
+
+        # Second device
+        mock_device_info_2 = Mock()
+        mock_device_info_2.serial = "device_2"
+        mock_device_info_2.transport = None
+
+        mock_manager.list_devices.return_value = [mock_device_info_1, mock_device_info_2]
+        mock_manager.get_device.side_effect = lambda serial: mock_device_info_1 if serial == "device_1" else mock_device_info_2
+
+        mock_device_1 = Mock()
+        mock_device_2 = Mock()
+        mock_device_class.side_effect = [mock_device_1, mock_device_2]
+
+        mock_controller_1 = Mock()
+        mock_controller_2 = Mock()
+        mock_controller_class.side_effect = [mock_controller_1, mock_controller_2]
+
+        # Test
+        server = MCPPhonegangServer()
+
+        # Connect to first device
+        server._ensure_connected("device_1")
+        assert server._controller is mock_controller_1
+        assert server._device_info.serial == "device_1"
+
+        # Connect to second device - should disconnect and reconnect
+        server._ensure_connected("device_2")
+        assert server._controller is mock_controller_2
+        assert server._device_info.serial == "device_2"
+
+        # Verify disconnect was called on first device
+        mock_device_1.disconnect.assert_called_once()
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    def test_ensure_connected_raises_error_when_no_devices(self, mock_manager_class):
+        """Test that ensure_connected raises error when no devices are connected."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.list_devices.return_value = []
+
+        # Test
+        server = MCPPhonegangServer()
+
+        with pytest.raises(ValueError, match="No devices connected"):
+            server._ensure_connected()
+
+    def test_disconnect_cleans_up_state(self):
+        """Test that disconnect properly cleans up all state."""
+        server = MCPPhonegangServer()
+
+        # Setup some state
+        mock_device = Mock()
+        mock_controller = Mock()
+        mock_device_info = Mock()
+
+        server._device = mock_device
+        server._controller = mock_controller
+        server._device_info = mock_device_info
+        server._last_dump_time = 123.45
+
+        # Disconnect
+        server._disconnect()
+
+        # Verify all state cleaned up
+        assert server._device is None
+        assert server._controller is None
+        assert server._device_info is None
+        assert server._last_dump_time == 0.0
+
+        # Verify device disconnect was called
+        mock_device.disconnect.assert_called_once()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
