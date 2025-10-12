@@ -196,6 +196,15 @@ class TestCacheManagement:
         assert server._is_cache_fresh() is False
 
 
+SAMPLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<hierarchy rotation="0">
+  <node index="0" text="Hello" resource-id="com.test:id/text" class="android.widget.TextView"
+        package="com.test" content-desc="" checkable="false" checked="false" clickable="true"
+        enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false"
+        password="false" selected="false" bounds="[0,0][100,100]"/>
+</hierarchy>"""
+
+
 class TestListDevicesTool:
     """Test list_devices MCP tool."""
 
@@ -238,6 +247,59 @@ class TestListDevicesTool:
         assert result["success"] is True
         assert result["count"] == 0
         assert result["devices"] == []
+
+
+class TestGetScreenTool:
+    """Test get_screen MCP tool."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_get_screen_returns_compact_view(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test get_screen returns compact tree view."""
+        # Setup device mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+        mock_manager.get_device.return_value = mock_device_info
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device_class.return_value = mock_device
+
+        # Setup controller mock
+        mock_tree = Mock()
+        mock_tree.render.return_value = "SCREEN OVERVIEW\nElements: 1 total"
+        mock_tree.elements = [Mock(text="Hello", clickable=True)]
+
+        mock_controller = Mock()
+        mock_controller.refresh_ui.return_value = mock_tree
+        mock_controller_class.return_value = mock_controller
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.get_screen()
+
+        assert result["success"] is True
+        assert "SCREEN OVERVIEW" in result["output"]
+        assert result["serial"] == "test_serial"
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    def test_get_screen_fails_when_no_devices(self, mock_manager_class):
+        """Test get_screen returns error when no devices connected."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.list_devices.return_value = []
+
+        server = MCPPhonegangServer()
+        result = server.get_screen()
+
+        assert result["success"] is False
+        assert "No devices connected" in result["error"]
 
 
 if __name__ == "__main__":

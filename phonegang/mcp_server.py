@@ -121,6 +121,40 @@ class MCPPhonegangServer:
                 "devices": []
             }
 
+    def get_screen(self, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get current screen state as compact tree view.
+
+        Args:
+            serial: Optional device serial
+
+        Returns:
+            Dict with success, output (rendered tree), and serial
+        """
+        try:
+            self._ensure_connected(serial)
+
+            # Use cached tree if fresh
+            if not self._is_cache_fresh():
+                tree = self._controller.refresh_ui()
+                self._update_cache_timestamp()
+            else:
+                tree = self._controller.tree
+
+            # Render in compact mode
+            output = tree.render("compact")
+
+            return {
+                "success": True,
+                "output": output,
+                "serial": self._device_info.serial
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
