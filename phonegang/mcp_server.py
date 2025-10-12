@@ -35,7 +35,7 @@ class MCPPhonegangServer:
             serial: Optional device serial. If None, uses first device.
         """
         # If already connected and no serial change, reuse
-        if self._controller is not None:
+        if self._controller is not None and self._device_info is not None:
             if serial is None or serial == self._device_info.serial:
                 return
             # Different serial requested, disconnect and reconnect
@@ -134,8 +134,8 @@ class MCPPhonegangServer:
         try:
             self._ensure_connected(serial)
 
-            # Use cached tree if fresh
-            if not self._is_cache_fresh():
+            # Use cached tree if fresh, otherwise refresh
+            if not self._is_cache_fresh() or self._controller.tree is None:
                 tree = self._controller.refresh_ui()
                 self._update_cache_timestamp()
             else:
@@ -256,7 +256,6 @@ class MCPPhonegangServer:
                 element = self._controller.wait_for_text(text, timeout=timeout)
             else:
                 # For resource_id, we need to implement polling
-                import time
                 start_time = time.time()
                 element = None
                 while time.time() - start_time < timeout:
@@ -444,8 +443,8 @@ class MCPPhonegangServer:
 
             self._ensure_connected(serial)
 
-            # Use cached tree if fresh
-            if not self._is_cache_fresh():
+            # Use cached tree if fresh, otherwise refresh
+            if not self._is_cache_fresh() or self._controller.tree is None:
                 tree = self._controller.refresh_ui()
                 self._update_cache_timestamp()
             else:

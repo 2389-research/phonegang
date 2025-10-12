@@ -59,7 +59,11 @@ class TestDeviceConnection:
         """Test that ensure_connected reuses existing controller."""
         server = MCPPhonegangServer()
         mock_controller = Mock()
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+
         server._controller = mock_controller
+        server._device_info = mock_device_info
 
         server._ensure_connected()
 
