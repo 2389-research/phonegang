@@ -1,0 +1,24 @@
+[project]
+name = "phonegang"
+version = "0.1.0"
+description = "Android phone control suite using accessibility trees"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "adb-shell[usb]>=0.4.4",
+    "click>=8.3.0",
+    "lxml>=6.0.2",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+phonegang = "phonegang.cli:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-mock>=3.15.1",
+]
+
+[tool.uv]
+package = true
