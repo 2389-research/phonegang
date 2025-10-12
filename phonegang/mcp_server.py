@@ -27,6 +27,47 @@ class MCPPhonegangServer:
         self._manager = DeviceManager()
         self._last_dump_time = 0.0
 
+    def _ensure_connected(self, serial: Optional[str] = None):
+        """
+        Ensure device is connected, connecting if necessary.
+
+        Args:
+            serial: Optional device serial. If None, uses first device.
+        """
+        # If already connected and no serial change, reuse
+        if self._controller is not None:
+            if serial is None or serial == self._device_info.serial:
+                return
+            # Different serial requested, disconnect and reconnect
+            self._disconnect()
+
+        # Connect to device
+        devices = self._manager.list_devices()
+        if not devices:
+            raise ValueError("No devices connected")
+
+        if serial:
+            self._device_info = self._manager.get_device(serial)
+        else:
+            self._device_info = devices[0]
+
+        # Create connection
+        device_param = self._device_info.transport if self._device_info.transport else self._device_info.serial
+        self._device = ADBDevice(device_param)
+        self._device.connect()
+
+        # Create controller
+        self._controller = DeviceController(self._device)
+
+    def _disconnect(self):
+        """Disconnect from device and clean up."""
+        if self._device:
+            self._device.disconnect()
+            self._device = None
+        self._controller = None
+        self._device_info = None
+        self._last_dump_time = 0.0
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
