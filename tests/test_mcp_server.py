@@ -196,5 +196,49 @@ class TestCacheManagement:
         assert server._is_cache_fresh() is False
 
 
+class TestListDevicesTool:
+    """Test list_devices MCP tool."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    def test_list_devices_returns_device_list(self, mock_manager_class):
+        """Test that list_devices returns formatted device list."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+
+        mock_device1 = Mock()
+        mock_device1.serial = "ABC123"
+        mock_device1.model = "Pixel 6"
+        mock_device1.status = "device"
+
+        mock_device2 = Mock()
+        mock_device2.serial = "DEF456"
+        mock_device2.model = "Galaxy S21"
+        mock_device2.status = "device"
+
+        mock_manager.list_devices.return_value = [mock_device1, mock_device2]
+
+        server = MCPPhonegangServer()
+        result = server.list_devices()
+
+        assert result["success"] is True
+        assert result["count"] == 2
+        assert len(result["devices"]) == 2
+        assert result["devices"][0]["serial"] == "ABC123"
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    def test_list_devices_returns_empty_when_no_devices(self, mock_manager_class):
+        """Test list_devices with no connected devices."""
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.list_devices.return_value = []
+
+        server = MCPPhonegangServer()
+        result = server.list_devices()
+
+        assert result["success"] is True
+        assert result["count"] == 0
+        assert result["devices"] == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

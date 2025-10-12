@@ -89,6 +89,38 @@ class MCPPhonegangServer:
         """Update cache timestamp to current time."""
         self._last_dump_time = time.time()
 
+    def list_devices(self) -> Dict[str, Any]:
+        """
+        List all connected Android devices.
+
+        Returns:
+            Dict with success, count, and device list
+        """
+        try:
+            devices = self._manager.list_devices()
+
+            device_list = [
+                {
+                    "serial": d.serial,
+                    "model": d.model,
+                    "status": d.status
+                }
+                for d in devices
+            ]
+
+            return {
+                "success": True,
+                "count": len(devices),
+                "devices": device_list
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "count": 0,
+                "devices": []
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
