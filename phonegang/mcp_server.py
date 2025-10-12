@@ -465,6 +465,241 @@ class MCPPhonegangServer:
             }
 
 
+def create_mcp_server() -> Server:
+    """Create and configure MCP server with phonegang tools."""
+    server = Server("phonegang")
+    phone_server = MCPPhonegangServer()
+
+    @server.list_tools()
+    async def list_tools() -> list[Tool]:
+        """List available MCP tools."""
+        return [
+            Tool(
+                name="list_devices",
+                description="List all connected Android devices",
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                }
+            ),
+            Tool(
+                name="get_screen",
+                description="Get current screen state as compact tree view",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="tap",
+                description="Tap an element by text or resource ID",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Element text to find"
+                        },
+                        "resource_id": {
+                            "type": "string",
+                            "description": "Element resource ID to find"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="type_text",
+                description="Type text into currently focused field",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Text to type"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                    "required": ["text"]
+                }
+            ),
+            Tool(
+                name="wait_for",
+                description="Wait for element to appear",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Element text to wait for"
+                        },
+                        "resource_id": {
+                            "type": "string",
+                            "description": "Element resource ID to wait for"
+                        },
+                        "timeout": {
+                            "type": "number",
+                            "description": "Maximum seconds to wait (default: 10)"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="tap_xy",
+                description="Tap at specific coordinates",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "x": {
+                            "type": "number",
+                            "description": "X coordinate"
+                        },
+                        "y": {
+                            "type": "number",
+                            "description": "Y coordinate"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                    "required": ["x", "y"]
+                }
+            ),
+            Tool(
+                name="swipe",
+                description="Swipe between two points",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "x1": {"type": "number", "description": "Start X coordinate"},
+                        "x2": {"type": "number", "description": "End X coordinate"},
+                        "y1": {"type": "number", "description": "Start Y coordinate"},
+                        "y2": {"type": "number", "description": "End Y coordinate"},
+                        "duration": {
+                            "type": "number",
+                            "description": "Swipe duration in milliseconds (default: 300)"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                    "required": ["x1", "y1", "x2", "y2"]
+                }
+            ),
+            Tool(
+                name="press_key",
+                description="Press a hardware/software key",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "keycode": {
+                            "type": "string",
+                            "description": "Android keycode (e.g., KEYCODE_BACK, KEYCODE_HOME)"
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                    "required": ["keycode"]
+                }
+            ),
+            Tool(
+                name="get_ui_dump",
+                description="Get raw XML UI dump",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="refresh",
+                description="Force refresh of UI tree, ignoring cache",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="render_screen",
+                description="Render screen in specified format (hierarchy, clickable, compact, spatial)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "description": "Rendering mode",
+                            "enum": ["hierarchy", "clickable", "compact", "spatial"]
+                        },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+        """Execute MCP tool."""
+        import json
+
+        # Route to appropriate method
+        method = getattr(phone_server, name, None)
+        if method is None:
+            result = {"success": False, "error": f"Unknown tool: {name}"}
+        else:
+            result = method(**arguments)
+
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    return server
+
+
+def main():
+    """Run MCP server."""
+    import asyncio
+    from mcp.server.stdio import stdio_server
+
+    async def run():
+        async with stdio_server() as (read_stream, write_stream):
+            server = create_mcp_server()
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options()
+            )
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
-    # Server will be started via mcp CLI
-    pass
+    main()

@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 phonegang = "phonegang.cli:cli"
+phonegang-mcp = "phonegang.mcp_server:main"
 
 [dependency-groups]
 dev = [
