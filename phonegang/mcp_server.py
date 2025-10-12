@@ -399,6 +399,71 @@ class MCPPhonegangServer:
                 "message": str(e)
             }
 
+    def refresh(self, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Force refresh of UI tree, ignoring cache.
+
+        Args:
+            serial: Optional device serial
+
+        Returns:
+            Dict with success
+        """
+        try:
+            self._ensure_connected(serial)
+            self._controller.refresh_ui()
+            self._update_cache_timestamp()
+
+            return {
+                "success": True,
+                "message": "Screen refreshed"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+    def render_screen(self, mode: str = "hierarchy", serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Render screen in specified format.
+
+        Args:
+            mode: Rendering mode (hierarchy, clickable, compact, spatial)
+            serial: Optional device serial
+
+        Returns:
+            Dict with success and rendered output
+        """
+        try:
+            if mode not in ["hierarchy", "clickable", "compact", "spatial"]:
+                return {
+                    "success": False,
+                    "message": f"Invalid mode: {mode}. Use hierarchy, clickable, compact, or spatial."
+                }
+
+            self._ensure_connected(serial)
+
+            # Use cached tree if fresh
+            if not self._is_cache_fresh():
+                tree = self._controller.refresh_ui()
+                self._update_cache_timestamp()
+            else:
+                tree = self._controller.tree
+
+            output = tree.render(mode)
+
+            return {
+                "success": True,
+                "output": output,
+                "mode": mode
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
