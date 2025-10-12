@@ -201,6 +201,96 @@ class MCPPhonegangServer:
                 "message": str(e)
             }
 
+    def type_text(self, text: str, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Type text into currently focused field.
+
+        Args:
+            text: Text to type
+            serial: Optional device serial
+
+        Returns:
+            Dict with success
+        """
+        try:
+            self._ensure_connected(serial)
+            self._device.type_text(text)
+            self._invalidate_cache()
+
+            return {
+                "success": True,
+                "message": f"Typed: {text}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
+    def wait_for(self, text: Optional[str] = None, resource_id: Optional[str] = None,
+                 timeout: int = 10, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Wait for element to appear.
+
+        Args:
+            text: Element text to wait for
+            resource_id: Element resource ID to wait for
+            timeout: Maximum seconds to wait
+            serial: Optional device serial
+
+        Returns:
+            Dict with success, found status, and optional element info
+        """
+        try:
+            if text is None and resource_id is None:
+                return {
+                    "success": False,
+                    "found": False,
+                    "message": "Must provide either text or resource_id"
+                }
+
+            self._ensure_connected(serial)
+
+            # Wait for element
+            if text:
+                element = self._controller.wait_for_text(text, timeout=timeout)
+            else:
+                # For resource_id, we need to implement polling
+                import time
+                start_time = time.time()
+                element = None
+                while time.time() - start_time < timeout:
+                    tree = self._controller.refresh_ui()
+                    elements = tree.find_by_resource_id(resource_id)
+                    if elements:
+                        element = elements[0]
+                        break
+                    time.sleep(0.5)
+
+            if element:
+                return {
+                    "success": True,
+                    "found": True,
+                    "element": {
+                        "text": element.text,
+                        "resource_id": element.resource_id,
+                        "clickable": element.clickable
+                    }
+                }
+            else:
+                identifier = text if text else resource_id
+                return {
+                    "success": True,
+                    "found": False,
+                    "message": f"Element not found after {timeout}s: {identifier}"
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "found": False,
+                "message": str(e)
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI

@@ -394,5 +394,70 @@ class TestTapTool:
         assert "not found" in result["message"]
 
 
+class TestTypeTextTool:
+    """Test type_text MCP tool."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    def test_type_text_succeeds(self, mock_device_class, mock_manager_class):
+        """Test typing text."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device.type_text = Mock()
+        mock_device_class.return_value = mock_device
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.type_text("Hello World")
+
+        assert result["success"] is True
+        mock_device.type_text.assert_called_once_with("Hello World")
+
+
+class TestWaitForTool:
+    """Test wait_for MCP tool."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_wait_for_element_found(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test waiting for element that exists."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device_class.return_value = mock_device
+
+        mock_element = Mock()
+        mock_element.text = "Done"
+
+        mock_controller = Mock()
+        mock_controller.wait_for_text.return_value = mock_element
+        mock_controller_class.return_value = mock_controller
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.wait_for(text="Done", timeout=5)
+
+        assert result["success"] is True
+        assert result["found"] is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
