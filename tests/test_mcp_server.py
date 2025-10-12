@@ -302,5 +302,97 @@ class TestGetScreenTool:
         assert "No devices connected" in result["error"]
 
 
+class TestTapTool:
+    """Test tap MCP tool."""
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_tap_by_text_succeeds(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test tapping element by text."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device_class.return_value = mock_device
+
+        mock_controller = Mock()
+        mock_controller.find_and_tap.return_value = True
+        mock_controller_class.return_value = mock_controller
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.tap(text="Login")
+
+        assert result["success"] is True
+        assert "Login" in result["message"]
+        mock_controller.find_and_tap.assert_called_once_with(text="Login", resource_id=None)
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_tap_by_resource_id_succeeds(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test tapping element by resource ID."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device_class.return_value = mock_device
+
+        mock_controller = Mock()
+        mock_controller.find_and_tap.return_value = True
+        mock_controller_class.return_value = mock_controller
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.tap(resource_id="login_button")
+
+        assert result["success"] is True
+        mock_controller.find_and_tap.assert_called_once_with(text=None, resource_id="login_button")
+
+    @patch('phonegang.mcp_server.DeviceManager')
+    @patch('phonegang.mcp_server.ADBDevice')
+    @patch('phonegang.mcp_server.DeviceController')
+    def test_tap_element_not_found(self, mock_controller_class, mock_device_class, mock_manager_class):
+        """Test tap fails gracefully when element not found."""
+        # Setup mocks
+        mock_manager = Mock()
+        mock_manager_class.return_value = mock_manager
+        mock_device_info = Mock()
+        mock_device_info.serial = "test_serial"
+        mock_device_info.transport = None
+        mock_manager.list_devices.return_value = [mock_device_info]
+
+        mock_device = MagicMock()
+        mock_device.__enter__ = Mock(return_value=mock_device)
+        mock_device.__exit__ = Mock(return_value=None)
+        mock_device_class.return_value = mock_device
+
+        mock_controller = Mock()
+        mock_controller.find_and_tap.return_value = False
+        mock_controller_class.return_value = mock_controller
+
+        # Test
+        server = MCPPhonegangServer()
+        result = server.tap(text="Nonexistent")
+
+        assert result["success"] is False
+        assert "not found" in result["message"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

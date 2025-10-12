@@ -155,6 +155,52 @@ class MCPPhonegangServer:
                 "error": str(e)
             }
 
+    def tap(self, text: Optional[str] = None, resource_id: Optional[str] = None,
+            serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Tap an element by text or resource ID.
+
+        Args:
+            text: Element text to find
+            resource_id: Element resource ID to find
+            serial: Optional device serial
+
+        Returns:
+            Dict with success and message
+        """
+        try:
+            if text is None and resource_id is None:
+                return {
+                    "success": False,
+                    "message": "Must provide either text or resource_id"
+                }
+
+            self._ensure_connected(serial)
+
+            # Find and tap element
+            success = self._controller.find_and_tap(text=text, resource_id=resource_id)
+
+            # Invalidate cache since UI changed
+            self._invalidate_cache()
+
+            if success:
+                identifier = text if text else resource_id
+                return {
+                    "success": True,
+                    "message": f"Tapped element: {identifier}"
+                }
+            else:
+                identifier = text if text else resource_id
+                return {
+                    "success": False,
+                    "message": f"Element not found: {identifier}"
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
