@@ -153,5 +153,48 @@ class TestDeviceConnection:
         mock_device.disconnect.assert_called_once()
 
 
+class TestCacheManagement:
+    """Test UI tree cache management."""
+
+    def test_invalidate_cache_resets_timestamp(self):
+        """Test that invalidate_cache resets timestamp to 0."""
+        server = MCPPhonegangServer()
+        server._last_dump_time = 100.0
+
+        server._invalidate_cache()
+
+        assert server._last_dump_time == 0.0
+
+    @patch('phonegang.mcp_server.time.time')
+    def test_is_cache_fresh_returns_true_when_fresh(self, mock_time):
+        """Test cache freshness check when cache is fresh."""
+        mock_time.return_value = 105.0
+
+        server = MCPPhonegangServer(cache_timeout=2.0)
+        server._last_dump_time = 104.0
+
+        assert server._is_cache_fresh() is True
+
+    @patch('phonegang.mcp_server.time.time')
+    def test_is_cache_fresh_returns_false_when_stale(self, mock_time):
+        """Test cache freshness check when cache is stale."""
+        mock_time.return_value = 107.0
+
+        server = MCPPhonegangServer(cache_timeout=2.0)
+        server._last_dump_time = 100.0
+
+        assert server._is_cache_fresh() is False
+
+    @patch('phonegang.mcp_server.time.time')
+    def test_is_cache_fresh_returns_false_when_never_cached(self, mock_time):
+        """Test cache freshness check when never cached."""
+        mock_time.return_value = 100.0
+
+        server = MCPPhonegangServer()
+        server._last_dump_time = 0.0
+
+        assert server._is_cache_fresh() is False
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -68,6 +68,27 @@ class MCPPhonegangServer:
         self._device_info = None
         self._last_dump_time = 0.0
 
+    def _invalidate_cache(self):
+        """Mark cache as stale."""
+        self._last_dump_time = 0.0
+
+    def _is_cache_fresh(self) -> bool:
+        """
+        Check if cached UI tree is still fresh.
+
+        Returns:
+            True if cache is fresh, False otherwise
+        """
+        if self._last_dump_time == 0.0:
+            return False
+
+        age = time.time() - self._last_dump_time
+        return age < self.cache_timeout
+
+    def _update_cache_timestamp(self):
+        """Update cache timestamp to current time."""
+        self._last_dump_time = time.time()
+
 
 if __name__ == "__main__":
     # Server will be started via mcp CLI
