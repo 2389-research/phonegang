@@ -463,6 +463,49 @@ class MCPPhonegangServer:
                 "message": str(e)
             }
 
+    def take_screenshot(self, serial: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Take a screenshot and return it as base64-encoded image.
+
+        Args:
+            serial: Optional device serial
+
+        Returns:
+            Dict with success, base64 image data, and mime type
+        """
+        import base64
+        import os
+
+        try:
+            self._ensure_connected(serial)
+
+            # Take screenshot and get file path
+            screenshot_path = self._device.take_screenshot()
+
+            # Read and encode as base64
+            with open(screenshot_path, 'rb') as f:
+                image_data = f.read()
+                base64_data = base64.b64encode(image_data).decode('utf-8')
+
+            # Clean up temp file if it was auto-generated
+            if '/tmp/' in screenshot_path or '/sdcard/' in screenshot_path:
+                try:
+                    os.remove(screenshot_path)
+                except:
+                    pass
+
+            return {
+                "success": True,
+                "image": base64_data,
+                "mime_type": "image/png",
+                "serial": self._device_info.serial
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e)
+            }
+
 
 def create_mcp_server() -> Server:
     """Create and configure MCP server with phonegang tools."""
@@ -657,6 +700,19 @@ def create_mcp_server() -> Server:
                             "description": "Rendering mode",
                             "enum": ["hierarchy", "clickable", "compact", "spatial"]
                         },
+                        "serial": {
+                            "type": "string",
+                            "description": "Optional device serial number"
+                        }
+                    },
+                }
+            ),
+            Tool(
+                name="take_screenshot",
+                description="Take a screenshot of the device screen and return as base64 image",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
                         "serial": {
                             "type": "string",
                             "description": "Optional device serial number"

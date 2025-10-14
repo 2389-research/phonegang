@@ -181,13 +181,8 @@ class ADBDevice:
         if output_path is None:
             output_path = tempfile.mktemp(suffix=".png", prefix="phonegang_")
 
-        # Pull screenshot
-        with open(output_path, "wb") as f:
-            screenshot_data = self.shell(f"cat {device_path}")
-            # The shell command returns bytes, but adb-shell may return string
-            if isinstance(screenshot_data, str):
-                screenshot_data = screenshot_data.encode("latin1")
-            f.write(screenshot_data)
+        # Pull screenshot using proper binary transfer
+        self._device.pull(device_path, output_path)
 
         # Clean up device
         self.shell(f"rm {device_path}")
