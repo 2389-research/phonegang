@@ -47,3 +47,18 @@ htmlcov/
 
 # Project specific - screenshots
 screenshots/
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+*.keystore
+.env
+.env.local
+*.secret
+adbkey
+adbkey.pub
+
+# OS-specific
+.DS_Store
+Thumbs.db

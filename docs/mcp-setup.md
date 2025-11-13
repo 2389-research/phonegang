@@ -20,13 +20,13 @@ Add this to your Claude Code MCP settings file:
   "mcpServers": {
     "phonegang": {
       "command": "uv",
-      "args": ["--directory", "/Users/harper/Public/src/2389/phonegang", "run", "phonegang-mcp"]
+      "args": ["--directory", "/path/to/phonegang", "run", "phonegang-mcp"]
     }
   }
 }
 ```
 
-**Note:** Update the path `/Users/harper/Public/src/2389/phonegang` to match your actual phonegang installation directory.
+**Note:** Update the path `/path/to/phonegang` to match your actual phonegang installation directory.
 
 ## Restart Claude Code
 
