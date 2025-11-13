@@ -10,6 +10,12 @@ from typing import Dict, Optional, Any
 from flask import Flask, request, Response, stream_with_context, redirect, render_template_string
 from flask_cors import CORS
 from phonegang.mcp_server import MCPPhonegangServer
+from phonegang.config import (
+    DEFAULT_HTTP_HOST,
+    DEFAULT_HTTP_PORT,
+    OAUTH_CODE_EXPIRY_SECONDS,
+    OAUTH_TOKEN_EXPIRY_SECONDS,
+)
 
 
 class MCPHTTPTransport:
@@ -320,18 +326,22 @@ button:hover { background: #1d4ed8; }
 """
 
 
-def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: Optional[str] = None, base_url: Optional[str] = None) -> Flask:
+def create_mcp_http_server(host: str = DEFAULT_HTTP_HOST, port: int = DEFAULT_HTTP_PORT, auth_token: Optional[str] = None, base_url: Optional[str] = None) -> Flask:
     """
     Create MCP-compliant HTTP server.
 
     Args:
-        host: Host to bind to
+        host: Host to bind to (default: 127.0.0.1 for localhost-only access)
         port: Port to listen on
         auth_token: Optional Bearer token for authentication (None = no auth)
         base_url: Base URL for OAuth metadata (e.g., http://example.com:8081)
 
     Returns:
         Flask app
+
+    Security Note:
+        Defaults to localhost (127.0.0.1) for security. Use '0.0.0.0' to bind to
+        all interfaces, but only do this in trusted networks with proper firewall rules.
     """
     app = Flask(__name__)
     CORS(app, origins="*", allow_headers=["*"], expose_headers=["*"])
@@ -481,7 +491,7 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
         # Generate authorization code
         code = secrets.token_urlsafe(32)
         transport.oauth_codes[code] = {
-            "expires_at": time.time() + 600,  # 10 minutes
+            "expires_at": time.time() + OAUTH_CODE_EXPIRY_SECONDS,
             "used": False,
             "redirect_uri": redirect_uri,
             "client_id": client_id,
@@ -502,7 +512,6 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
         """OAuth 2.0 token endpoint with PKCE support."""
         import hashlib
         import base64
-        import sys
 
         # OAuth 2.0 spec requires application/x-www-form-urlencoded, but we also support JSON
         def get_param(name):
@@ -512,11 +521,6 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
             elif request.is_json:
                 return request.json.get(name)
             return None
-
-        print(f"DEBUG: Content-Type: {request.content_type}", file=sys.stderr)
-        print(f"DEBUG: Form data: {dict(request.form)}", file=sys.stderr)
-        print(f"DEBUG: JSON data: {request.json if request.is_json else 'N/A'}", file=sys.stderr)
-        sys.stderr.flush()
 
         grant_type = get_param("grant_type")
 
@@ -531,11 +535,6 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
                 return {"error": "invalid_grant", "error_description": "Invalid code"}, 400
 
             code_data = transport.oauth_codes[code]
-
-            # Debug logging
-            print(f"DEBUG: Token exchange - client_id from request: {client_id}", file=sys.stderr)
-            print(f"DEBUG: Token exchange - client_id from code: {code_data.get('client_id')}", file=sys.stderr)
-            sys.stderr.flush()
 
             # Check if expired
             if code_data["expires_at"] < time.time():
@@ -591,7 +590,7 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
             # Generate access token
             access_token = secrets.token_urlsafe(48)
             transport.oauth_tokens[access_token] = {
-                "expires_at": time.time() + 3600,  # 1 hour
+                "expires_at": time.time() + OAUTH_TOKEN_EXPIRY_SECONDS,
                 "client_id": code_data.get("client_id"),
                 "scope": code_data.get("scope")
             }
@@ -599,7 +598,7 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
             return {
                 "access_token": access_token,
                 "token_type": "Bearer",
-                "expires_in": 3600,
+                "expires_in": OAUTH_TOKEN_EXPIRY_SECONDS,
                 "scope": code_data.get("scope")
             }
 
@@ -617,7 +616,7 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
             # Direct token grant
             access_token = secrets.token_urlsafe(48)
             transport.oauth_tokens[access_token] = {
-                "expires_at": time.time() + 3600,
+                "expires_at": time.time() + OAUTH_TOKEN_EXPIRY_SECONDS,
                 "client_id": client_id,
                 "scope": "read:devices read:screen write:control"
             }
@@ -625,7 +624,7 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
             return {
                 "access_token": access_token,
                 "token_type": "Bearer",
-                "expires_in": 3600
+                "expires_in": OAUTH_TOKEN_EXPIRY_SECONDS
             }
 
         else:
@@ -634,8 +633,6 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
     @app.route("/mcp", methods=["POST", "GET", "OPTIONS"])
     def mcp_endpoint():
         """Main MCP endpoint."""
-        import sys
-
         # Handle CORS preflight
         if request.method == "OPTIONS":
             return "", 204
@@ -651,10 +648,6 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
 
         # Get session ID
         session_id = request.headers.get("Mcp-Session-Id")
-
-        print(f"DEBUG MCP: Session ID from header: {session_id}", file=sys.stderr)
-        print(f"DEBUG MCP: Request JSON: {request.json if request.is_json else 'N/A'}", file=sys.stderr)
-        sys.stderr.flush()
 
         # Handle POST (message)
         if request.method == "POST":
@@ -728,15 +721,19 @@ def create_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: 
     return app
 
 
-def start_mcp_http_server(host: str = "0.0.0.0", port: int = 8000, auth_token: Optional[str] = None, base_url: Optional[str] = None):
+def start_mcp_http_server(host: str = DEFAULT_HTTP_HOST, port: int = DEFAULT_HTTP_PORT, auth_token: Optional[str] = None, base_url: Optional[str] = None):
     """
     Start MCP HTTP server.
 
     Args:
-        host: Host to bind to
+        host: Host to bind to (default: 127.0.0.1 for localhost-only access)
         port: Port to listen on
         auth_token: Optional Bearer token for authentication
         base_url: Base URL for OAuth metadata
+
+    Security Note:
+        Defaults to localhost (127.0.0.1) for security. Use '0.0.0.0' to bind to
+        all interfaces, but only do this in trusted networks with proper firewall rules.
     """
     if base_url is None:
         base_url = f"http://{host}:{port}"
