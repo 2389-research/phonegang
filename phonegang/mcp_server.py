@@ -69,7 +69,8 @@ class MCPPhonegangServer:
             self._device = None
         self._controller = None
         self._device_info = None
-        self._last_dump_time = 0.0
+        with self._cache_lock:
+            self._last_dump_time = 0.0
 
     def _invalidate_cache(self):
         """Mark cache as stale."""

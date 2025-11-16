@@ -111,7 +111,8 @@ class DeviceController:
             distance: Swipe distance in pixels (default: half element size)
 
         Raises:
-            ValueError: If direction is invalid or distance is negative
+            ValueError: If direction is invalid, distance is negative, or element has
+                       zero/invalid dimensions when distance is auto-calculated
         """
         valid_directions = ['up', 'down', 'left', 'right']
         if direction not in valid_directions:
@@ -129,6 +130,13 @@ class DeviceController:
                 distance = (y2 - y1) // 2
             else:
                 distance = (x2 - x1) // 2
+
+            # Validate calculated distance is positive
+            if distance <= 0:
+                raise ValueError(
+                    f"Element has invalid or zero {'height' if direction in ['up', 'down'] else 'width'}: "
+                    f"bounds={element.bounds}, calculated distance={distance}"
+                )
 
         if direction == 'up':
             self.device.swipe(center_x, center_y, center_x, center_y - distance)
