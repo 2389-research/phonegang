@@ -1,25 +1,59 @@
 # ABOUTME: Device manager for discovering and managing connected Android devices
 # ABOUTME: Handles device enumeration, selection, and basic device information
 
-from typing import List, Optional
-from adb_shell.adb_device import AdbDeviceUsb, UsbTransport
+from typing import List, Optional, Tuple
+from adb_shell.adb_device import AdbDevice as BaseAdbDevice, UsbTransport
 from phonegang.auth import get_signers
+
+
+def _classify_connect_failure(exc: Exception) -> Tuple[str, str]:
+    """
+    Turn a USB/ADB connection exception into a (status, explanation) pair.
+
+    Args:
+        exc: The exception raised while connecting to the device
+
+    Returns:
+        Tuple of the device status and a human-readable explanation with a fix
+    """
+    detail = f"{type(exc).__name__}: {exc}"
+    text = str(exc).lower() + " " + type(exc).__name__.lower()
+
+    # phonegang talks to the device over raw USB; the adb server claims the same
+    # interface exclusively, so only one of the two can hold the device.
+    if "busy" in text or "access" in text or "permission" in text:
+        return "busy", (
+            f"{detail}\n"
+            f"      The USB interface is claimed by another process — usually the adb "
+            f"server. Run 'adb kill-server' and retry."
+        )
+
+    if "unauthorized" in text or "timeout" in text or "auth" in text:
+        return "unauthorized", (
+            f"{detail}\n"
+            f"      Unlock the device and accept the 'Allow USB debugging' prompt, then retry."
+        )
+
+    return "offline", detail
 
 
 class DeviceInfo:
     """Represents information about a connected Android device."""
 
-    def __init__(self, serial: str, model: str = "Unknown", status: str = "device", transport=None):
+    def __init__(self, serial: str, model: str = "Unknown", status: str = "device", transport=None,
+                 error: Optional[str] = None):
         self.serial = serial
         self.model = model
         self.status = status
         self.transport = transport  # Store the USB transport for reuse
+        self.error = error  # Why the device is not usable, when status != "device"
 
     def __repr__(self) -> str:
         return f"DeviceInfo(serial='{self.serial}', model='{self.model}', status='{self.status}')"
 
     def __str__(self) -> str:
-        return f"{self.serial} - {self.model} ({self.status})"
+        base = f"{self.serial} - {self.model} ({self.status})"
+        return f"{base}\n      {self.error}" if self.error else base
 
 
 class DeviceManager:
@@ -48,7 +82,7 @@ class DeviceManager:
             for usb_transport in usb_transports:
                 try:
                     # Create ADB device with this transport
-                    device = AdbDeviceUsb(usb_transport)
+                    device = BaseAdbDevice(usb_transport)
                     device.connect(rsa_keys=rsa_keys, auth_timeout_s=10)
 
                     # Get model info
@@ -63,19 +97,22 @@ class DeviceManager:
 
                     device.close()
                 except Exception as e:
-                    # If we can't connect, still add it with unknown status
+                    # Keep the device listed, but explain why it is unusable rather
+                    # than reporting a bare "offline".
+                    status, explanation = _classify_connect_failure(e)
                     devices.append(DeviceInfo(
                         serial=usb_transport.serial_number,
                         model="Unknown",
-                        status="unauthorized" if "unauthorized" in str(e).lower() else "offline",
-                        transport=usb_transport
+                        status=status,
+                        transport=usb_transport,
+                        error=explanation
                     ))
 
             self._devices = devices
             return devices
 
         except Exception as e:
-            raise RuntimeError(f"Failed to list devices: {e}")
+            raise RuntimeError(f"Failed to list devices: {type(e).__name__}: {e}") from e
 
     def get_device(self, serial: Optional[str] = None) -> DeviceInfo:
         """
