@@ -1,9 +1,9 @@
 # ABOUTME: Authentication helper for ADB connections
 # ABOUTME: Handles RSA key generation, loading, and management for device authorization
 
-import os
 from pathlib import Path
 from typing import List
+from adb_shell.auth.keygen import keygen, write_public_keyfile
 from adb_shell.auth.sign_pythonrsa import PythonRSASigner
 
 
@@ -22,13 +22,22 @@ def get_default_key_path() -> Path:
 
 def load_or_generate_keys(key_path: Path = None) -> List[PythonRSASigner]:
     """
-    Load existing RSA keys or generate new ones if they don't exist.
+    Load existing RSA keys, generating a new pair only if none exist.
+
+    An existing private key is never overwritten: every device that has
+    authorized it (on this machine or any other sharing ~/.android) would be
+    invalidated and need re-approval. If the private key is present but its
+    public counterpart is missing, the public key is re-derived from it.
 
     Args:
         key_path: Path to the ADB key directory. If None, uses default (~/.android)
 
     Returns:
         List of PythonRSASigner objects for authentication
+
+    Raises:
+        RuntimeError: If an existing private key is present but unusable, or if
+            key generation fails.
     """
     if key_path is None:
         key_path = get_default_key_path()
@@ -36,51 +45,39 @@ def load_or_generate_keys(key_path: Path = None) -> List[PythonRSASigner]:
     private_key_path = key_path / "adbkey"
     public_key_path = key_path / "adbkey.pub"
 
-    # Try to load existing keys
-    if private_key_path.exists() and public_key_path.exists():
+    if private_key_path.exists():
+        # Derive the public key rather than regenerating the pair, so existing
+        # device authorizations survive.
+        if not public_key_path.exists():
+            try:
+                write_public_keyfile(str(private_key_path), str(public_key_path))
+            except Exception as e:
+                raise RuntimeError(
+                    f"ADB private key at {private_key_path} exists but its public key "
+                    f"could not be derived: {e}\n"
+                    f"Refusing to generate a new key, which would revoke this machine's "
+                    f"existing device authorizations. Move {private_key_path} aside to "
+                    f"start over with a fresh key."
+                ) from e
+
         try:
-            signer = PythonRSASigner.FromRSAKeyPath(str(private_key_path))
-            return [signer]
+            return [PythonRSASigner.FromRSAKeyPath(str(private_key_path))]
         except Exception as e:
-            print(f"Warning: Failed to load existing keys: {e}")
-            print("Generating new keys...")
+            raise RuntimeError(
+                f"Failed to load ADB key at {private_key_path}: {e}\n"
+                f"Refusing to overwrite it, which would revoke this machine's existing "
+                f"device authorizations. Move it aside to generate a fresh key."
+            ) from e
 
-    # Generate new keys using system adb command
+    # No private key on disk: safe to create one.
     try:
-        import subprocess
-
-        print(f"No ADB keys found. Generating new keys at {key_path}...")
-        print("Please run 'adb devices' once to generate the keys, or they will be created on first connection attempt.")
-
-        # Try to generate using adb keygen if available
-        try:
-            subprocess.run(
-                ['adb', 'keygen', str(private_key_path)],
-                check=True,
-                capture_output=True,
-                timeout=10
-            )
-            print(f"Generated new ADB keys at {key_path}")
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            # If adb keygen doesn't work, create a message for the user
-            print("Could not generate keys automatically. Please:")
-            print(f"1. Run 'adb devices' to generate keys")
-            print(f"2. Or manually place RSA keys at {private_key_path}")
-            print("Then try connecting again.")
-            return []
-
-        # Load the generated keys
-        if private_key_path.exists():
-            signer = PythonRSASigner.FromRSAKeyPath(str(private_key_path))
-            return [signer]
-        else:
-            print("Keys were not created. Returning empty list.")
-            return []
-
+        keygen(str(private_key_path))
     except Exception as e:
-        print(f"Warning: Failed to generate RSA keys: {e}")
-        print("Returning empty signer list. Connection may fail if device requires authentication.")
-        return []
+        raise RuntimeError(f"Failed to generate ADB key at {private_key_path}: {e}") from e
+
+    print(f"Generated a new ADB key at {private_key_path}")
+    print("Accept the 'Allow USB debugging' prompt on the device to authorize it.")
+    return [PythonRSASigner.FromRSAKeyPath(str(private_key_path))]
 
 
 def get_signers(key_path: Path = None) -> List[PythonRSASigner]:
