@@ -26,7 +26,7 @@ A powerful suite of tools for controlling Android phones over USB using accessib
 ### Install with uv (recommended)
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/yourusername/phonegang.git
 cd phonegang
 uv sync
 ```
@@ -445,7 +445,7 @@ Contributions are welcome! Please ensure:
 
 ## License
 
-[Add your license here]
+MIT License - see [LICENSE](LICENSE) for details
 
 ## Credits
 
