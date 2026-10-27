@@ -6,6 +6,7 @@ from adb_shell.adb_device import AdbDevice as BaseAdbDevice, AdbDeviceUsb, UsbTr
 from adb_shell.auth.sign_pythonrsa import PythonRSASigner
 from pathlib import Path
 import tempfile
+from phonegang.config import ADB_AUTH_TIMEOUT_SECONDS, DEFAULT_SWIPE_DURATION_MS
 
 
 class ADBDevice:
@@ -47,7 +48,7 @@ class ADBDevice:
     def connect(self):
         """Establish connection to the device."""
         if not self._connected:
-            self._device.connect(rsa_keys=self._rsa_keys, auth_timeout_s=10)
+            self._device.connect(rsa_keys=self._rsa_keys, auth_timeout_s=ADB_AUTH_TIMEOUT_SECONDS)
             self._connected = True
 
     def disconnect(self):
@@ -105,10 +106,15 @@ class ADBDevice:
         Args:
             x: X coordinate
             y: Y coordinate
+
+        Raises:
+            ValueError: If coordinates are negative
         """
+        if x < 0 or y < 0:
+            raise ValueError(f"Coordinates must be non-negative, got x={x}, y={y}")
         self.shell(f"input tap {x} {y}")
 
-    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 300):
+    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = DEFAULT_SWIPE_DURATION_MS):
         """
         Simulate a swipe gesture.
 
@@ -118,7 +124,14 @@ class ADBDevice:
             x2: End X coordinate
             y2: End Y coordinate
             duration: Swipe duration in milliseconds
+
+        Raises:
+            ValueError: If coordinates are negative or duration is invalid
         """
+        if x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0:
+            raise ValueError(f"Coordinates must be non-negative, got x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+        if duration <= 0:
+            raise ValueError(f"Duration must be positive, got {duration}")
         self.shell(f"input swipe {x1} {y1} {x2} {y2} {duration}")
 
     def type_text(self, text: str):
@@ -127,7 +140,12 @@ class ADBDevice:
 
         Args:
             text: Text to type (spaces will be replaced with %s)
+
+        Raises:
+            ValueError: If text is empty
         """
+        if not text:
+            raise ValueError("Text cannot be empty")
         # ADB input text command requires spaces to be escaped as %s
         escaped_text = text.replace(" ", "%s")
         self.shell(f"input text {escaped_text}")
@@ -138,7 +156,12 @@ class ADBDevice:
 
         Args:
             keycode: Android keycode (e.g., 'KEYCODE_HOME', 'KEYCODE_BACK', or number)
+
+        Raises:
+            ValueError: If keycode is empty
         """
+        if not keycode:
+            raise ValueError("Keycode cannot be empty")
         self.shell(f"input keyevent {keycode}")
 
     def press_back(self):

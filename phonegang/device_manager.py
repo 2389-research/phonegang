@@ -4,6 +4,7 @@
 from typing import List, Optional
 from adb_shell.adb_device import AdbDeviceUsb, UsbTransport
 from phonegang.auth import get_signers
+from phonegang.config import ADB_AUTH_TIMEOUT_SECONDS
 
 
 class DeviceInfo:
@@ -49,7 +50,7 @@ class DeviceManager:
                 try:
                     # Create ADB device with this transport
                     device = AdbDeviceUsb(usb_transport)
-                    device.connect(rsa_keys=rsa_keys, auth_timeout_s=10)
+                    device.connect(rsa_keys=rsa_keys, auth_timeout_s=ADB_AUTH_TIMEOUT_SECONDS)
 
                     # Get model info
                     model = device.shell("getprop ro.product.model").strip()
