@@ -8,18 +8,28 @@ from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from phonegang.mcp_server import MCPPhonegangServer
 from phonegang.device_manager import DeviceManager
+from phonegang.config import (
+    DEFAULT_HTTP_HOST,
+    DEFAULT_HTTP_PORT,
+    SCREEN_STREAM_POLL_INTERVAL_SECONDS,
+    SCREEN_STREAM_ERROR_RETRY_DELAY_SECONDS,
+)
 
 
-def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
+def create_http_api(host: str = DEFAULT_HTTP_HOST, port: int = DEFAULT_HTTP_PORT) -> Flask:
     """
     Create Flask app with HTTP API for MCP server.
 
     Args:
-        host: Host to bind to
+        host: Host to bind to (default: 127.0.0.1 for localhost-only access)
         port: Port to listen on
 
     Returns:
         Flask app instance
+
+    Security Note:
+        Defaults to localhost (127.0.0.1) for security. Use '0.0.0.0' to bind to
+        all interfaces, but only do this in trusted networks with proper firewall rules.
     """
     app = Flask(__name__)
     CORS(app)  # Enable CORS for web clients
@@ -216,7 +226,7 @@ def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
 
                                 yield f"data: {json.dumps(event_data)}\n\n"
 
-                    time.sleep(0.5)  # Poll every 500ms
+                    time.sleep(SCREEN_STREAM_POLL_INTERVAL_SECONDS)
 
                 except Exception as e:
                     error_data = {
@@ -224,7 +234,7 @@ def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
                         'message': str(e)
                     }
                     yield f"data: {json.dumps(error_data)}\n\n"
-                    time.sleep(1)
+                    time.sleep(SCREEN_STREAM_ERROR_RETRY_DELAY_SECONDS)
 
         return Response(
             stream_with_context(generate()),
@@ -272,7 +282,7 @@ def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
                         }
                         yield f"data: {json.dumps(error_data)}\n\n"
 
-                    time.sleep(0.5)  # Poll every 500ms
+                    time.sleep(SCREEN_STREAM_POLL_INTERVAL_SECONDS)
 
                 except Exception as e:
                     error_data = {
@@ -281,7 +291,7 @@ def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
                         'message': str(e)
                     }
                     yield f"data: {json.dumps(error_data)}\n\n"
-                    time.sleep(1)
+                    time.sleep(SCREEN_STREAM_ERROR_RETRY_DELAY_SECONDS)
 
         return Response(
             stream_with_context(generate()),
@@ -295,13 +305,17 @@ def create_http_api(host: str = '0.0.0.0', port: int = 8000) -> Flask:
     return app
 
 
-def start_http_api(host: str = '0.0.0.0', port: int = 8000):
+def start_http_api(host: str = DEFAULT_HTTP_HOST, port: int = DEFAULT_HTTP_PORT):
     """
     Start the HTTP API server.
 
     Args:
-        host: Host to bind to
+        host: Host to bind to (default: 127.0.0.1 for localhost-only access)
         port: Port to listen on
+
+    Security Note:
+        Defaults to localhost (127.0.0.1) for security. Use '0.0.0.0' to bind to
+        all interfaces, but only do this in trusted networks with proper firewall rules.
     """
     app = create_http_api(host, port)
     print(f"Starting Phonegang HTTP API on http://{host}:{port}")

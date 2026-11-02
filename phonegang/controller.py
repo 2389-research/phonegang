@@ -4,6 +4,11 @@
 from typing import Optional, List
 from phonegang.adb_wrapper import ADBDevice
 from phonegang.accessibility_tree import AccessibilityTree, Element
+from phonegang.config import (
+    MAX_SCROLL_ATTEMPTS,
+    UI_REFRESH_INTERVAL_SECONDS,
+    DEFAULT_WAIT_TIMEOUT_SECONDS,
+)
 
 
 class DeviceController:
@@ -104,7 +109,18 @@ class DeviceController:
             element: Element to swipe on
             direction: Direction to swipe ('up', 'down', 'left', 'right')
             distance: Swipe distance in pixels (default: half element size)
+
+        Raises:
+            ValueError: If direction is invalid, distance is negative, or element has
+                       zero/invalid dimensions when distance is auto-calculated
         """
+        valid_directions = ['up', 'down', 'left', 'right']
+        if direction not in valid_directions:
+            raise ValueError(f"Invalid direction: {direction}. Must be one of {valid_directions}")
+
+        if distance is not None and distance <= 0:
+            raise ValueError(f"Distance must be positive, got {distance}")
+
         x1, y1, x2, y2 = element.parse_bounds()
         center_x = (x1 + x2) // 2
         center_y = (y1 + y2) // 2
@@ -115,6 +131,13 @@ class DeviceController:
             else:
                 distance = (x2 - x1) // 2
 
+            # Validate calculated distance is positive
+            if distance <= 0:
+                raise ValueError(
+                    f"Element has invalid or zero {'height' if direction in ['up', 'down'] else 'width'}: "
+                    f"bounds={element.bounds}, calculated distance={distance}"
+                )
+
         if direction == 'up':
             self.device.swipe(center_x, center_y, center_x, center_y - distance)
         elif direction == 'down':
@@ -123,13 +146,11 @@ class DeviceController:
             self.device.swipe(center_x, center_y, center_x - distance, center_y)
         elif direction == 'right':
             self.device.swipe(center_x, center_y, center_x + distance, center_y)
-        else:
-            raise ValueError(f"Invalid direction: {direction}")
 
     def scroll_to_text(
         self,
         text: str,
-        max_scrolls: int = 10,
+        max_scrolls: int = MAX_SCROLL_ATTEMPTS,
         direction: str = "down",
     ) -> Optional[Element]:
         """
@@ -142,7 +163,17 @@ class DeviceController:
 
         Returns:
             Found element or None
+
+        Raises:
+            ValueError: If max_scrolls is negative or direction is invalid
         """
+        if max_scrolls < 0:
+            raise ValueError(f"max_scrolls must be non-negative, got {max_scrolls}")
+
+        valid_directions = ['up', 'down']
+        if direction not in valid_directions:
+            raise ValueError(f"Invalid direction: {direction}. Must be one of {valid_directions}")
+
         for _ in range(max_scrolls):
             self.refresh_ui()
             elements = self.tree.find_by_text(text)
@@ -166,8 +197,8 @@ class DeviceController:
     def wait_for_text(
         self,
         text: str,
-        timeout: int = 10,
-        refresh_interval: float = 0.5,
+        timeout: int = DEFAULT_WAIT_TIMEOUT_SECONDS,
+        refresh_interval: float = UI_REFRESH_INTERVAL_SECONDS,
     ) -> Optional[Element]:
         """
         Wait for an element with given text to appear.
@@ -179,7 +210,16 @@ class DeviceController:
 
         Returns:
             Found element or None if timeout
+
+        Raises:
+            ValueError: If timeout or refresh_interval are invalid
         """
+        if timeout < 0:
+            raise ValueError(f"timeout must be non-negative, got {timeout}")
+
+        if refresh_interval <= 0:
+            raise ValueError(f"refresh_interval must be positive, got {refresh_interval}")
+
         import time
 
         start_time = time.time()

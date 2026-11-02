@@ -2,18 +2,20 @@
 # ABOUTME: Provides MCP tools for direct phone interaction via Claude
 
 import time
+import threading
 from typing import Optional, Dict, Any
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 from phonegang.device_manager import DeviceManager, DeviceInfo
 from phonegang.adb_wrapper import ADBDevice
 from phonegang.controller import DeviceController
+from phonegang.config import UI_CACHE_TIMEOUT_SECONDS
 
 
 class MCPPhonegangServer:
     """MCP server that wraps phonegang functionality."""
 
-    def __init__(self, cache_timeout: float = 2.0):
+    def __init__(self, cache_timeout: float = UI_CACHE_TIMEOUT_SECONDS):
         """
         Initialize MCP server.
 
@@ -26,6 +28,7 @@ class MCPPhonegangServer:
         self._device: Optional[ADBDevice] = None
         self._manager = DeviceManager()
         self._last_dump_time = 0.0
+        self._cache_lock = threading.Lock()  # Protect cache operations
 
     def _ensure_connected(self, serial: Optional[str] = None):
         """
@@ -66,11 +69,13 @@ class MCPPhonegangServer:
             self._device = None
         self._controller = None
         self._device_info = None
-        self._last_dump_time = 0.0
+        with self._cache_lock:
+            self._last_dump_time = 0.0
 
     def _invalidate_cache(self):
         """Mark cache as stale."""
-        self._last_dump_time = 0.0
+        with self._cache_lock:
+            self._last_dump_time = 0.0
 
     def _is_cache_fresh(self) -> bool:
         """
@@ -79,15 +84,17 @@ class MCPPhonegangServer:
         Returns:
             True if cache is fresh, False otherwise
         """
-        if self._last_dump_time == 0.0:
-            return False
+        with self._cache_lock:
+            if self._last_dump_time == 0.0:
+                return False
 
-        age = time.time() - self._last_dump_time
-        return age < self.cache_timeout
+            age = time.time() - self._last_dump_time
+            return age < self.cache_timeout
 
     def _update_cache_timestamp(self):
         """Update cache timestamp to current time."""
-        self._last_dump_time = time.time()
+        with self._cache_lock:
+            self._last_dump_time = time.time()
 
     def list_devices(self) -> Dict[str, Any]:
         """
